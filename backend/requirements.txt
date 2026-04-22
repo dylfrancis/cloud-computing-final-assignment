@@ -5,6 +5,7 @@ pydantic-settings>=2.4
 sqlalchemy>=2.0
 aioodbc>=0.5
 pyodbc>=5.1
+greenlet>=3.0
 alembic>=1.13
 python-multipart>=0.0.9
 passlib[bcrypt]>=1.7.4

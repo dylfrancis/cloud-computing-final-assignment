@@ -39,6 +39,9 @@ venv/
 backend/app/ml/artifacts/*
 !backend/app/ml/artifacts/.gitkeep
 
+# Extracted retail data — keep the source .zip, ignore the CSVs
+backend/data/*.csv
+
 # Terraform
 .terraform/
 *.tfstate
