@@ -1,0 +1,15 @@
+subscription_id = "c46f2b06-e010-4ead-8cb9-79809b836081"
+tenant_id       = "f5222e6c-5fc6-48eb-8f03-73db18203b63"
+
+resource_group_name = "final-project-rg"
+location            = "eastus2"
+prefix              = "adh2"
+
+sql_admin_user = "sqladmin"
+# DO NOT put the password here. Set it as an env var before apply:
+#   export TF_VAR_sql_admin_password='<a-strong-password>'
+
+allowed_ip = "74.83.141.106"
+
+app_service_sku = "B1"
+cors_origins    = ["http://localhost:5173"]

@@ -1,0 +1,3 @@
+# Fill in `storage_account_name` from the bootstrap output, then run:
+#   terraform init -backend-config=backend.hcl
+storage_account_name = "adh2tfstateXXXXXX"

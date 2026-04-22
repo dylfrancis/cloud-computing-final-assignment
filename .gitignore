@@ -23,3 +23,30 @@ dist-ssr
 *.sln
 *.sw?
 *.iml
+
+# Python / FastAPI
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ML artifacts
+backend/app/ml/artifacts/*
+!backend/app/ml/artifacts/.gitkeep
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+backend.hcl
+!backend.hcl.example
+crash.log
+crash.*.log
+.terraform.lock.hcl

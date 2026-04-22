@@ -1,0 +1,15 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+pydantic-settings>=2.4
+sqlalchemy>=2.0
+aioodbc>=0.5
+pyodbc>=5.1
+alembic>=1.13
+python-multipart>=0.0.9
+passlib[bcrypt]>=1.7.4
+pyjwt>=2.9
+pandas>=2.2
+scikit-learn>=1.5
+joblib>=1.4
+python-dotenv>=1.0
