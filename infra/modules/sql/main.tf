@@ -33,9 +33,9 @@ resource "azurerm_mssql_firewall_rule" "azure_services" {
 }
 
 resource "azurerm_mssql_firewall_rule" "dev_ip" {
-  count            = var.allowed_ip == "" ? 0 : 1
-  name             = "DevIP"
+  for_each         = toset(var.allowed_ips)
+  name             = "DevIP-${replace(each.key, ".", "-")}"
   server_id        = azurerm_mssql_server.this.id
-  start_ip_address = var.allowed_ip
-  end_ip_address   = var.allowed_ip
+  start_ip_address = each.key
+  end_ip_address   = each.key
 }

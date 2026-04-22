@@ -9,7 +9,7 @@ sql_admin_user = "sqladmin"
 # DO NOT put the password here. Set it as an env var before apply:
 #   export TF_VAR_sql_admin_password='<a-strong-password>'
 
-allowed_ip = "74.83.141.106"
+allowed_ips = ["123.456.789.0/24"]
 
 app_service_sku = "B1"
 cors_origins    = ["http://localhost:5173"]

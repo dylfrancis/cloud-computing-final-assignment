@@ -35,10 +35,10 @@ variable "sql_admin_password" {
   description = "Pass via TF_VAR_sql_admin_password env var — never commit."
 }
 
-variable "allowed_ip" {
-  type        = string
-  default     = "74.83.141.106"
-  description = "Dev public IP for SQL firewall"
+variable "allowed_ips" {
+  type        = list(string)
+  default     = []
+  description = "Dev public IPs to whitelist on the SQL firewall (set in terraform.tfvars)"
 }
 
 variable "app_service_sku" {

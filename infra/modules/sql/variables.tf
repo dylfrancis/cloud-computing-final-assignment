@@ -29,8 +29,8 @@ variable "database_name" {
   default = "retail"
 }
 
-variable "allowed_ip" {
-  type        = string
-  default     = ""
-  description = "Public IP to whitelist on the SQL firewall (leave empty to skip)"
+variable "allowed_ips" {
+  type        = list(string)
+  default     = []
+  description = "Public IPs to whitelist on the SQL firewall (empty list skips)"
 }

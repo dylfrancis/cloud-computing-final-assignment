@@ -31,7 +31,7 @@ module "sql" {
   location            = var.location
   admin_user          = var.sql_admin_user
   admin_password      = var.sql_admin_password
-  allowed_ip          = var.allowed_ip
+  allowed_ips         = var.allowed_ips
 }
 
 module "static_web_app" {

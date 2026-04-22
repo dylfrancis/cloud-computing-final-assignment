@@ -50,7 +50,8 @@ terraform output -raw swa_deployment_token   # copy to GitHub secret AZURE_STATI
   `false` in `modules/sql/main.tf` and accept normal serverless pricing.
 - **App Service SKU:** defaults to `B1` (~$13/mo). Change `app_service_sku = "F1"`
   in tfvars for the free tier (no always-on, cold starts).
-- **SQL firewall:** the default `allowed_ip` is Dylan's IP. Add teammate IPs via
-  the portal or extend the `sql` module.
+- **SQL firewall:** `allowed_ips` in `terraform.tfvars` is a list — add teammate
+  IPs there and `terraform apply`. Leave empty to rely on the Azure-services
+  rule only.
 - **State:** lives in `tfstate` container in the bootstrap storage account. Never
   commit `*.tfvars`, `*.tfstate*`, or `.terraform/` — already gitignored.
