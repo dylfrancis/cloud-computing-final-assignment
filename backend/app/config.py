@@ -1,4 +1,5 @@
-from functools import lru_cache
+import json
+from functools import cached_property, lru_cache
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,7 +13,17 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_alg: str = "HS256"
     jwt_expires_min: int = 60
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # Accepts JSON (["a","b"]) or comma-separated ("a,b") from CORS_ORIGINS.
+    cors_origins_raw: str = Field(default="http://localhost:5173", alias="CORS_ORIGINS")
+
+    @cached_property
+    def cors_origins(self) -> list[str]:
+        value = self.cors_origins_raw.strip()
+        if not value:
+            return []
+        if value.startswith("["):
+            return json.loads(value)
+        return [v.strip() for v in value.split(",") if v.strip()]
 
 
 @lru_cache
