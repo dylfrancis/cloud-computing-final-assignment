@@ -1,0 +1,73 @@
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: '3.13'
+  APP_NAME: adh2-api-cecfxb
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Import smoke test
+        working-directory: backend
+        env:
+          DATABASE_URL: mssql+aioodbc://u:p@example.com:1433/db?driver=ODBC+Driver+18+for+SQL+Server
+          JWT_SECRET: ci-only-not-secret
+        run: python -c "from app.main import app; print('app loaded:', app.title)"
+
+      - name: Package for App Service
+        working-directory: backend
+        run: zip -r ../backend.zip . -x '*.pyc' '*/__pycache__/*' '.venv/*' 'data/*.zip' 'data/*.csv'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend
+          path: backend.zip
+          retention-days: 7
+
+  deploy:
+    name: Deploy to App Service
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend
+
+      - name: Deploy (zip)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.APP_NAME }}
+          package: backend.zip
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
