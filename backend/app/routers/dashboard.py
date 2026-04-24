@@ -8,7 +8,7 @@ single ``GROUP BY`` on the ~900k transactions.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import case, func, literal, select
+from sqlalchemy import case, func, literal, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
@@ -58,8 +58,10 @@ async def kpis(session: AsyncSession = Depends(get_session)) -> Kpis:
 
 def _bucket_expr(grain: str):
     """SQL Server: snap purchase_date to the start of its week (Monday) or
-    month via DATEADD(DATEDIFF(...), 0)."""
-    unit = literal("week") if grain == "week" else literal("month")
+    month via DATEADD(DATEDIFF(...)). The datepart (``week``/``month``) must
+    render as an unquoted identifier — ``literal_column`` gives us that;
+    ``literal`` would emit it as a string and DATEDIFF rejects it."""
+    unit = literal_column("week") if grain == "week" else literal_column("month")
     anchor = literal("1900-01-01")
     return func.dateadd(unit, func.datediff(unit, anchor, Transaction.purchase_date), anchor)
 

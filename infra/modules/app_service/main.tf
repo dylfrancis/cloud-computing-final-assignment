@@ -14,7 +14,8 @@ resource "azurerm_linux_web_app" "this" {
   https_only          = true
 
   site_config {
-    always_on        = var.sku_name != "F1" && var.sku_name != "B1"
+    # F1 (Free) is the only SKU that doesn't support always_on. B1+ does.
+    always_on        = var.sku_name != "F1"
     app_command_line = "bash startup.sh"
     application_stack {
       python_version = var.python_version

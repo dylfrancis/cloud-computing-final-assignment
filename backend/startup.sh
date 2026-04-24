@@ -19,5 +19,19 @@ if ! odbcinst -q -d -n "ODBC Driver 18 for SQL Server" >/dev/null 2>&1; then
   rm -rf /var/lib/apt/lists/*
 fi
 
-python -m alembic upgrade head
+# Azure SQL Serverless auto-pauses when idle; waking it up from a cold boot
+# can take longer than pyodbc's default ~30s login timeout. Retry alembic a
+# few times before giving up so the container doesn't crash-loop on wake-up.
+attempt=0
+max_attempts=8
+until python -m alembic upgrade head; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge "$max_attempts" ]; then
+    echo "alembic failed $attempt times; giving up."
+    exit 1
+  fi
+  echo "alembic attempt $attempt failed (DB likely waking up), retrying in 15s..."
+  sleep 15
+done
+
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
