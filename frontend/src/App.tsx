@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
+import { Dashboard } from './routes/Dashboard'
 import { Login } from './routes/Login'
-import { Placeholder } from './routes/Placeholder'
 import { Root } from './routes/Root'
 import { Search } from './routes/Search'
 import { Signup } from './routes/Signup'
@@ -27,7 +27,7 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Search /> },
-      { path: 'dashboard', element: <Placeholder title="Dashboard" /> },
+      { path: 'dashboard', element: <Dashboard /> },
       { path: 'upload', element: <Upload /> },
     ],
   },

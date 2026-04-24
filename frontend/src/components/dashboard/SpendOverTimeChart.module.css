@@ -1,0 +1,36 @@
+.toggle {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--code-bg);
+}
+
+.toggleBtn,
+.toggleActive {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.toggleActive {
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.toggleBtn:hover { color: var(--text-h); }
+
+.placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: 13px;
+}

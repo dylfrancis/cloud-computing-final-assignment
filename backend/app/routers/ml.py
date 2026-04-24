@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_current_user_email, get_db
+from app.ml import trainer
 from app.ml.registry import get_registry
 
 router = APIRouter(
@@ -239,3 +240,20 @@ async def predict_basket(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     except Exception as e:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Prediction failed: {str(e)}")
+
+
+# ==================== UNIFIED RETRAIN ====================
+
+
+@router.get("/retrain")
+async def get_retrain_status() -> dict:
+    """Live status of the unified retrain-all job."""
+    return trainer.get_status()
+
+
+@router.post("/retrain", status_code=status.HTTP_202_ACCEPTED)
+async def kick_off_retrain() -> dict:
+    """Kick off a retrain of all three models in the background. Idempotent —
+    calling while a retrain is already running returns the current status."""
+    return trainer.kick_off_retrain()
+

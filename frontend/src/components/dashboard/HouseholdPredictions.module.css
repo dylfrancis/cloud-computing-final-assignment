@@ -1,0 +1,140 @@
+.card {
+  padding: 16px 20px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title { margin: 0; font-size: 15px; color: var(--text-h); }
+.subtitle { margin: 2px 0 0; font-size: 12px; color: var(--text); }
+
+.form {
+  display: flex;
+  gap: 6px;
+}
+
+.input {
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 10px;
+  min-width: 140px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.submit {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.hint {
+  font-size: 12px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--code-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 100px;
+}
+
+.tileWide { grid-column: 1 / -1; }
+
+.tileHeader {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.statValue {
+  font-size: 22px;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.statRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.statMeta {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.segPill {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.segHigh { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+.segMed { background: rgba(234, 179, 8, 0.12); color: #ca8a04; }
+.segLow { background: var(--code-bg); color: var(--text); border: 1px solid var(--border); }
+
+.recs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.recs li {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recId {
+  font-size: 13px;
+  color: var(--text-h);
+  font-family: var(--mono);
+}
+
+.recMeta {
+  font-size: 11px;
+  color: var(--text);
+}

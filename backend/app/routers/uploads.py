@@ -43,9 +43,8 @@ from app.data_load import (
     load_products,
     load_transactions,
 )
-from app.db import SessionLocal
 from app.deps import get_current_user_email
-from app.ml.registry import get_registry
+from app.ml import trainer
 from app.models.household import Household
 from app.models.product import Product
 from app.models.transaction import Transaction
@@ -164,22 +163,29 @@ def _load_sync(
 
 async def _retrain(job: UploadJob) -> None:
     job.stage = "retraining"
-    registry = get_registry()
-    # Seed all three up-front as pending so clients see the full checklist
-    # immediately, then flip each to running/ok/failed as it progresses.
-    job.retrain = {"clv": "pending", "churn": "pending", "basket": "pending"}
-    async with SessionLocal() as session:
-        for name, model in (
-            ("clv", registry.get_clv()),
-            ("churn", registry.get_churn()),
-            ("basket", registry.get_basket()),
-        ):
-            job.retrain = {**job.retrain, name: "running"}
-            try:
-                await model.train(session)
-                job.retrain = {**job.retrain, name: "ok"}
-            except Exception as exc:
-                job.retrain = {**job.retrain, name: f"failed: {exc}"}
+    # Delegate to the shared trainer so /ml/retrain and the upload flow share
+    # live status. Poll until the trainer is done, mirroring model state onto
+    # the upload job so the Upload page keeps showing its existing per-model
+    # pills without needing a second endpoint.
+    trainer.kick_off_retrain()
+    while trainer.is_training():
+        await asyncio.sleep(1)
+        _sync_job_from_trainer(job)
+    _sync_job_from_trainer(job)
+
+
+def _sync_job_from_trainer(job: UploadJob) -> None:
+    snapshot = trainer.get_status()["models"]
+    job.retrain = {
+        name: _summarise(snapshot[name]) for name in ("clv", "churn", "basket")
+    }
+
+
+def _summarise(model_state: dict) -> str:
+    status = model_state["status"]
+    if status == "failed" and model_state.get("error"):
+        return f"failed: {model_state['error']}"
+    return status
 
 
 async def _process_job(
