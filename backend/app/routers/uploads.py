@@ -134,8 +134,10 @@ def _load_sync(
             )
             transactions, dropped = load_transactions(tx_path, valid_hshds, valid_products)
 
-        # Truncate only the tables we're replacing, children first.
-        if tx_path:
+        # Any replacement of a parent table requires wiping the child table
+        # first — transactions FK into both products and households.
+        must_clear_transactions = bool(tx_path or pr_path or hh_path)
+        if must_clear_transactions:
             session.query(Transaction).delete()
             session.commit()
         if pr_path:

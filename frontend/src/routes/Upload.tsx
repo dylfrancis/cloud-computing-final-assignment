@@ -124,6 +124,11 @@ export function Upload() {
           />
         ) : (
           <>
+            <p className={styles.note}>
+              Transactions reference households and products via FKs. Any upload that replaces
+              households or products will also clear the transactions table — include a
+              transactions.csv if you want rows to remain.
+            </p>
             <FileField
               label="Households (.csv)"
               accept=".csv,text/csv"
