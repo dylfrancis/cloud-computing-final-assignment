@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Literal, TypedDict
 
 from app.db import SessionLocal
+from app.ml.persistence import save_model
 from app.ml.registry import get_registry
 
 ModelName = Literal["clv", "churn", "basket"]
@@ -75,6 +76,8 @@ async def _train_one(name: ModelName) -> None:
         # clv/churn set training_date internally; basket only has .associations.
         date = getattr(model, "training_date", None) or datetime.now(tz=timezone.utc)
         _state[name]["training_date"] = date.isoformat()
+        # Persist to /home so restarts don't lose the trained model.
+        save_model(name, model)
     except Exception as exc:
         _state[name]["status"] = "failed"
         _state[name]["error"] = f"{type(exc).__name__}: {exc}"

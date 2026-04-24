@@ -3,16 +3,22 @@
 from app.ml.basket_model import BasketModel
 from app.ml.churn_model import ChurnModel
 from app.ml.clv_model import CLVModel
+from app.ml.persistence import load_model
 
 
 class ModelRegistry:
-    """In-memory registry for trained models."""
+    """In-memory registry for trained models.
+
+    On construction, tries to load each model from the persistent artifact
+    directory (``/home/ml-artifacts`` on Azure App Service). If no artifact
+    is present, or if it's incompatible with the current code, falls back
+    to a fresh untrained instance.
+    """
 
     def __init__(self):
-        """Initialize registry with untrained models."""
-        self.clv_model = CLVModel()
-        self.churn_model = ChurnModel()
-        self.basket_model = BasketModel()
+        self.clv_model = load_model("clv", CLVModel) or CLVModel()
+        self.churn_model = load_model("churn", ChurnModel) or ChurnModel()
+        self.basket_model = load_model("basket", BasketModel) or BasketModel()
 
     def get_clv(self) -> CLVModel:
         """Get CLV model."""
