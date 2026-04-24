@@ -55,12 +55,16 @@ class CLVModel:
         if features_df.empty:
             raise ValueError("No transaction data available for training")
 
-        # Calculate target: spending in next future_days period
-        cutoff_date = datetime.now() - timedelta(days=future_days)
+        # Calculate target: spending in the LAST future_days period of the
+        # dataset. Anchoring on MAX(purchase_date) instead of "now" makes the
+        # target well-defined even on a historical snapshot.
         target_query = f"""
             SELECT hshd_num, SUM(spend) as future_spend
             FROM transactions
-            WHERE purchase_date >= '{cutoff_date.date()}'
+            WHERE purchase_date >= DATEADD(
+                day, -{future_days},
+                (SELECT MAX(purchase_date) FROM transactions)
+            )
             GROUP BY hshd_num
         """
 

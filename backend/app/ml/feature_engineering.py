@@ -19,6 +19,21 @@ from app.models.transaction import Transaction
 DEFAULT_LOOKBACK_DAYS = 365 * 20
 
 
+async def get_reference_date(session: AsyncSession) -> pd.Timestamp:
+    """Return the most recent purchase_date in the transactions table.
+
+    We use this as the "current date" anchor for recency / future-window
+    calculations so the models still produce meaningful targets when trained
+    on a historical snapshot (the 84.51° sample ends 2020-08-15). Falls back
+    to today if the table is empty.
+    """
+    result = await session.execute(select(func.max(Transaction.purchase_date)))
+    max_date = result.scalar_one_or_none()
+    if max_date is None:
+        return pd.Timestamp.now().normalize()
+    return pd.Timestamp(max_date)
+
+
 async def get_clv_features(
     session: AsyncSession, hshd_num: int | None = None, lookback_days: int = DEFAULT_LOOKBACK_DAYS
 ) -> pd.DataFrame:
@@ -112,7 +127,8 @@ async def get_clv_features(
     # pd.to_datetime normalises the date objects coming out of pyodbc so the
     # subtraction produces a Timedelta Series with a working .dt accessor.
     recency["last_purchase_date"] = pd.to_datetime(recency["last_purchase_date"])
-    recency["recency_days"] = (pd.Timestamp.now().normalize() - recency["last_purchase_date"]).dt.days
+    reference_date = await get_reference_date(session)
+    recency["recency_days"] = (reference_date - recency["last_purchase_date"]).dt.days
     recency = recency[["hshd_num", "recency_days"]]
     agg_features = agg_features.merge(recency, on="hshd_num", how="left")
 
@@ -205,7 +221,8 @@ async def get_churn_features(
     # pd.to_datetime normalises the date objects coming out of pyodbc so the
     # subtraction produces a Timedelta Series with a working .dt accessor.
     recency["last_purchase_date"] = pd.to_datetime(recency["last_purchase_date"])
-    recency["recency_days"] = (pd.Timestamp.now().normalize() - recency["last_purchase_date"]).dt.days
+    reference_date = await get_reference_date(session)
+    recency["recency_days"] = (reference_date - recency["last_purchase_date"]).dt.days
     recency = recency[["hshd_num", "recency_days"]]
 
     # Split into recent and prior periods

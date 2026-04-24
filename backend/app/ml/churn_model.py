@@ -59,10 +59,15 @@ class ChurnModel:
         if features_df.empty:
             raise ValueError("No transaction data available for training")
 
-        # Define churn labels: households inactive for churn_threshold_days
+        # Define churn labels: "churned" = no purchase within churn_threshold_days
+        # of the dataset's most recent purchase. Anchoring on MAX(purchase_date)
+        # instead of GETDATE() keeps both classes populated when the app runs
+        # against a historical snapshot.
         churn_query = f"""
             SELECT hshd_num,
-                   CASE WHEN MAX(purchase_date) < DATEADD(day, {-churn_threshold_days}, CAST(GETDATE() AS DATE))
+                   CASE WHEN MAX(purchase_date) < DATEADD(
+                           day, {-churn_threshold_days},
+                           (SELECT MAX(purchase_date) FROM transactions))
                    THEN 1 ELSE 0 END as churned
             FROM transactions
             GROUP BY hshd_num
