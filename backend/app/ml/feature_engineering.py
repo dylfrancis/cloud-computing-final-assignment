@@ -109,7 +109,10 @@ async def get_clv_features(
 
     result = await session.execute(recency_query)
     recency = pd.DataFrame(result.mappings().all())
-    recency["recency_days"] = (datetime.now().date() - recency["last_purchase_date"]).dt.days
+    # pd.to_datetime normalises the date objects coming out of pyodbc so the
+    # subtraction produces a Timedelta Series with a working .dt accessor.
+    recency["last_purchase_date"] = pd.to_datetime(recency["last_purchase_date"])
+    recency["recency_days"] = (pd.Timestamp.now().normalize() - recency["last_purchase_date"]).dt.days
     recency = recency[["hshd_num", "recency_days"]]
     agg_features = agg_features.merge(recency, on="hshd_num", how="left")
 
@@ -199,7 +202,10 @@ async def get_churn_features(
 
     result = await session.execute(recency_query)
     recency = pd.DataFrame(result.mappings().all())
-    recency["recency_days"] = (datetime.now().date() - recency["last_purchase_date"]).dt.days
+    # pd.to_datetime normalises the date objects coming out of pyodbc so the
+    # subtraction produces a Timedelta Series with a working .dt accessor.
+    recency["last_purchase_date"] = pd.to_datetime(recency["last_purchase_date"])
+    recency["recency_days"] = (pd.Timestamp.now().normalize() - recency["last_purchase_date"]).dt.days
     recency = recency[["hshd_num", "recency_days"]]
 
     # Split into recent and prior periods
