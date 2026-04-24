@@ -332,16 +332,17 @@ async def get_market_basket_features(
 
     # Sparse one-hot. TransactionEncoder with sparse=True returns a scipy
     # csr_matrix; the SparseDataFrame wrapper is what fpgrowth expects.
+    # mlxtend requires string column names on sparse frames, so we cast the
+    # product_num ints to str and back after mining.
     te = TransactionEncoder()
     te_array = te.fit(basket_lists).transform(basket_lists, sparse=True)
-    sparse_df = pd.DataFrame.sparse.from_spmatrix(te_array, columns=te.columns_)
+    sparse_df = pd.DataFrame.sparse.from_spmatrix(
+        te_array, columns=[str(c) for c in te.columns_]
+    )
 
     # max_len=2 restricts FP-growth to singletons + pairs — everything we
     # need for the pair-wise recommendation path in BasketModel.predict.
-    # low_memory=True streams candidate generation off-heap.
-    frequent = fpgrowth(
-        sparse_df, min_support=min_support, use_colnames=True, max_len=2, low_memory=True
-    )
+    frequent = fpgrowth(sparse_df, min_support=min_support, use_colnames=True, max_len=2)
 
     if frequent.empty:
         return pd.DataFrame()
@@ -351,8 +352,10 @@ async def get_market_basket_features(
     if pairs.empty:
         return pd.DataFrame()
 
-    def _split(itemset: frozenset[int]) -> pd.Series:
-        a, b = sorted(itemset)
+    def _split(itemset: frozenset[str]) -> pd.Series:
+        # itemset elements came in as str (see column-cast above); convert
+        # back to int so the DataFrame product ids match Transaction.product_num.
+        a, b = sorted(int(x) for x in itemset)
         return pd.Series([a, b])
 
     pairs[["product1", "product2"]] = pairs["itemsets"].apply(_split)
