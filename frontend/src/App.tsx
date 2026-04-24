@@ -7,6 +7,7 @@ import { Placeholder } from './routes/Placeholder'
 import { Root } from './routes/Root'
 import { Search } from './routes/Search'
 import { Signup } from './routes/Signup'
+import { Upload } from './routes/Upload'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,7 +28,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Search /> },
       { path: 'dashboard', element: <Placeholder title="Dashboard" /> },
-      { path: 'upload', element: <Placeholder title="Upload" /> },
+      { path: 'upload', element: <Upload /> },
     ],
   },
 ])

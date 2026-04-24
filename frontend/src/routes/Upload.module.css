@@ -1,0 +1,230 @@
+.header { margin-bottom: 20px; }
+
+.title { margin: 0 0 4px; font-size: 24px; }
+
+.subtitle {
+  font-size: 14px;
+  max-width: 720px;
+  line-height: 145%;
+}
+
+.modeToggle {
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  margin-bottom: 16px;
+}
+
+.modeBtn,
+.modeActive {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.modeActive {
+  background: var(--bg);
+  color: var(--text-h);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.modeBtn:hover:not(:disabled) { color: var(--text-h); }
+.modeBtn:disabled, .modeActive:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--code-bg);
+  margin-bottom: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.fileMeta {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.submit {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 18px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.submit:hover:not(:disabled) { filter: brightness(1.05); }
+.submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.error {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text-h);
+  font-size: 13px;
+}
+
+.jobCard {
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.jobHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.jobHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  font-family: var(--mono);
+}
+
+.statusPill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.statusBusy { background: var(--code-bg); color: var(--text); }
+.statusOk { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+.statusFail { background: var(--accent-bg); color: var(--text-h); }
+
+.stageRow {
+  display: flex;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.stageLabel {
+  color: var(--text);
+  min-width: 60px;
+}
+
+.counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px 20px;
+  margin: 0;
+}
+
+.counts dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.counts dd {
+  margin: 2px 0 0;
+  color: var(--text-h);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.muted { color: var(--text); font-size: 12px; }
+
+.retrain h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.retrainList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.retrainRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.retrainName {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.retrainPill {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+
+.retrainPending { background: var(--code-bg); color: var(--text); }
+
+.retrainRunning {
+  background: var(--accent-bg);
+  color: var(--text-h);
+  position: relative;
+}
+
+.retrainRunning::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: 6px;
+  vertical-align: middle;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.retrainOk { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+.retrainFail { background: var(--accent-bg); color: var(--text-h); }
