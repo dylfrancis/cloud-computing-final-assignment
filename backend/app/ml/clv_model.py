@@ -151,7 +151,13 @@ class CLVModel:
             all_features[self.feature_names] if self.feature_names else all_features
         )
         all_scores = self.model.predict(all_X)
-        percentile = float(np.percentileofscore(all_scores, clv_score))
+        # Percentile rank in [0, 100]: percent of household scores <= this one.
+        # np.percentileofscore doesn't exist — scipy.stats has that function,
+        # not numpy. We compute it inline to avoid pulling scipy.
+        if len(all_scores) > 0:
+            percentile = float(np.mean(all_scores <= clv_score) * 100)
+        else:
+            percentile = 0.0
 
         # Segment based on percentiles
         if percentile >= 66:

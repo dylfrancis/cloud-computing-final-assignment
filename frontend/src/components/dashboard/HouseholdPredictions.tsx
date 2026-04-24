@@ -106,7 +106,7 @@ function CLVCard({ query }: { query: QueryLike<Awaited<ReturnType<typeof mlApi.p
           <div className={styles.statRow}>
             <SegmentPill segment={data.segment} />
             <span className={styles.statMeta}>
-              Top {PCT.format(1 - data.clv_percentile)}
+              Top {PCT.format(1 - data.clv_percentile / 100)}
             </span>
           </div>
         </>

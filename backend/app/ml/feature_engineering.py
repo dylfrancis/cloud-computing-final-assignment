@@ -294,22 +294,25 @@ async def get_churn_features(
 async def get_market_basket_features(
     session: AsyncSession, lookback_days: int = DEFAULT_LOOKBACK_DAYS, min_support: float = 0.02
 ) -> pd.DataFrame:
-    """Mine frequent product pairs with FP-growth on a sparse basket matrix.
+    """Mine frequent product pairs with an Apriori-style Counter pass.
 
-    Output DataFrame (kept identical to the previous nested-loop implementation
-    so ``BasketModel.predict`` doesn't need changes):
+    Output DataFrame (kept identical to prior implementations so
+    ``BasketModel.predict`` doesn't need changes):
 
-    - product1, product2: Product identifiers, sorted so product1 < product2
-    - co_occurrence: Number of baskets containing both
-    - support: Fraction of total baskets
+    - product1, product2: product identifiers, sorted so product1 < product2
+    - co_occurrence: number of baskets containing both
+    - support: fraction of total baskets
 
-    We use ``mlxtend.frequent_patterns.fpgrowth`` against a sparse one-hot
-    transaction matrix — dramatically lighter on memory than materialising
-    every product pair in Python and safe to run on a B1 App Service
-    (1.75 GB RAM) even with 250k+ baskets.
+    Why not mlxtend ``fpgrowth``? It densifies its sparse input internally;
+    with 67k unique products × ~250k baskets that's a ~5 GB bool matrix —
+    OK on a laptop, OOM on a B1 App Service (1.75 GB). The loop below
+    never materialises a matrix: it prefilters to frequent singletons
+    (downward-closure of Apriori), then counts pair co-occurrences in a
+    ``Counter`` keyed by sorted ``(product_a, product_b)`` tuples. Peak
+    memory is O(frequent_pairs), measured in MB for realistic ``min_support``.
     """
-    from mlxtend.frequent_patterns import fpgrowth
-    from mlxtend.preprocessing import TransactionEncoder
+    from collections import Counter
+    from itertools import combinations
 
     cutoff_date = datetime.now() - timedelta(days=lookback_days)
 
@@ -320,48 +323,47 @@ async def get_market_basket_features(
 
     result = await session.execute(basket_query)
     baskets = pd.DataFrame(result.mappings().all())
-
     if baskets.empty:
         return pd.DataFrame()
 
-    # basket → list of unique product_nums
-    basket_lists: list[list[int]] = (
-        baskets.groupby("basket_num")["product_num"].agg(lambda s: list(set(s))).tolist()
+    # basket → set of unique product_nums
+    basket_sets: list[set[int]] = (
+        baskets.groupby("basket_num")["product_num"].agg(set).tolist()
     )
-    total_baskets = len(basket_lists)
-
-    # Sparse one-hot. TransactionEncoder with sparse=True returns a scipy
-    # csr_matrix; the SparseDataFrame wrapper is what fpgrowth expects.
-    # mlxtend requires string column names on sparse frames, so we cast the
-    # product_num ints to str and back after mining.
-    te = TransactionEncoder()
-    te_array = te.fit(basket_lists).transform(basket_lists, sparse=True)
-    sparse_df = pd.DataFrame.sparse.from_spmatrix(
-        te_array, columns=[str(c) for c in te.columns_]
-    )
-
-    # max_len=2 restricts FP-growth to singletons + pairs — everything we
-    # need for the pair-wise recommendation path in BasketModel.predict.
-    frequent = fpgrowth(sparse_df, min_support=min_support, use_colnames=True, max_len=2)
-
-    if frequent.empty:
+    total_baskets = len(basket_sets)
+    if total_baskets == 0:
         return pd.DataFrame()
 
-    # Keep only 2-itemsets; drop singleton support rows.
-    pairs = frequent[frequent["itemsets"].apply(len) == 2].copy()
-    if pairs.empty:
+    min_count = max(1, int(total_baskets * min_support))
+
+    # Pass 1: singleton counts. Drops every product not individually
+    # frequent — a size-2 itemset cannot be frequent unless both items are.
+    singleton_counts: Counter[int] = Counter()
+    for items in basket_sets:
+        singleton_counts.update(items)
+    frequent_singletons = {p for p, c in singleton_counts.items() if c >= min_count}
+
+    if len(frequent_singletons) < 2:
         return pd.DataFrame()
 
-    def _split(itemset: frozenset[str]) -> pd.Series:
-        # itemset elements came in as str (see column-cast above); convert
-        # back to int so the DataFrame product ids match Transaction.product_num.
-        a, b = sorted(int(x) for x in itemset)
-        return pd.Series([a, b])
+    # Pass 2: pair counts, restricted to frequent singletons.
+    pair_counts: Counter[tuple[int, int]] = Counter()
+    for items in basket_sets:
+        freq = sorted(items & frequent_singletons)
+        for a, b in combinations(freq, 2):
+            pair_counts[(a, b)] += 1
 
-    pairs[["product1", "product2"]] = pairs["itemsets"].apply(_split)
-    pairs["co_occurrence"] = (pairs["support"] * total_baskets).round().astype(int)
-    assoc_df = pairs[["product1", "product2", "co_occurrence", "support"]].reset_index(drop=True)
-    return assoc_df
+    rows = [
+        {
+            "product1": a,
+            "product2": b,
+            "co_occurrence": c,
+            "support": c / total_baskets,
+        }
+        for (a, b), c in pair_counts.items()
+        if c >= min_count
+    ]
+    return pd.DataFrame(rows, columns=["product1", "product2", "co_occurrence", "support"])
 
 
 def _encode_demographics(df: pd.DataFrame) -> pd.DataFrame:
