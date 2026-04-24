@@ -56,6 +56,12 @@ def get_status() -> dict:
     return {"is_training": running, "models": _state}
 
 
+# The 84.51° sample is from 2018–2020. Models default to a 365-day lookback
+# which excludes every row once the demo runs any time in 2021+. Override
+# with a generous 20-year window so we always pick up the full dataset.
+_DEFAULT_LOOKBACK_DAYS = 365 * 20
+
+
 async def _train_one(name: ModelName) -> None:
     reg = get_registry()
     model = {"clv": reg.get_clv(), "churn": reg.get_churn(), "basket": reg.get_basket()}[name]
@@ -63,7 +69,7 @@ async def _train_one(name: ModelName) -> None:
     _state[name]["error"] = None
     try:
         async with SessionLocal() as session:
-            await model.train(session)
+            await model.train(session, lookback_days=_DEFAULT_LOOKBACK_DAYS)
         _state[name]["status"] = "ok"
         _state[name]["trained"] = True
         # clv/churn set training_date internally; basket only has .associations.

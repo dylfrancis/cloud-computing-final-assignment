@@ -12,9 +12,15 @@ from app.models.household import Household
 from app.models.product import Product
 from app.models.transaction import Transaction
 
+# Default lookback window for training/prediction feature pulls. The 84.51°
+# sample is from 2018-2020; against live timestamps in 2026+ a 1-year window
+# excludes every transaction. 20 years keeps the historical demo data in play
+# without affecting anyone running the models against fresh retail feeds.
+DEFAULT_LOOKBACK_DAYS = 365 * 20
+
 
 async def get_clv_features(
-    session: AsyncSession, hshd_num: int | None = None, lookback_days: int = 365
+    session: AsyncSession, hshd_num: int | None = None, lookback_days: int = DEFAULT_LOOKBACK_DAYS
 ) -> pd.DataFrame:
     """
     Extract features for CLV (Customer Lifetime Value) prediction.
@@ -138,7 +144,7 @@ async def get_clv_features(
 
 
 async def get_churn_features(
-    session: AsyncSession, hshd_num: int | None = None, lookback_days: int = 365
+    session: AsyncSession, hshd_num: int | None = None, lookback_days: int = DEFAULT_LOOKBACK_DAYS
 ) -> pd.DataFrame:
     """
     Extract features for Churn prediction.
@@ -256,7 +262,7 @@ async def get_churn_features(
 
 
 async def get_market_basket_features(
-    session: AsyncSession, lookback_days: int = 365, min_support: float = 0.02
+    session: AsyncSession, lookback_days: int = DEFAULT_LOOKBACK_DAYS, min_support: float = 0.02
 ) -> pd.DataFrame:
     """
     Extract features for market basket analysis.
