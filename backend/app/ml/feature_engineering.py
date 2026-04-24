@@ -77,6 +77,10 @@ async def get_clv_features(
     if transactions.empty:
         return pd.DataFrame()
 
+    # pyodbc hands Numeric(10,2) back as decimal.Decimal; downstream sklearn
+    # math expects floats, so normalise once here.
+    transactions["spend"] = transactions["spend"].astype(float)
+
     # Aggregate transaction-level features
     agg_features = transactions.groupby("hshd_num").agg({
         "spend": ["sum", "count", "mean"],
@@ -204,6 +208,9 @@ async def get_churn_features(
     if transactions.empty:
         return pd.DataFrame()
 
+    # Decimal → float so downstream aggregates don't mix dtypes.
+    transactions["spend"] = transactions["spend"].astype(float)
+
     # Recency
     recency_query = (
         select(
@@ -287,31 +294,28 @@ async def get_churn_features(
 async def get_market_basket_features(
     session: AsyncSession, lookback_days: int = DEFAULT_LOOKBACK_DAYS, min_support: float = 0.02
 ) -> pd.DataFrame:
-    """
-    Extract features for market basket analysis.
+    """Mine frequent product pairs with FP-growth on a sparse basket matrix.
 
-    Returns product association rules: {product_a: {product_b: co_occurrence_count}}
-    This can be used for itemset mining and association rule generation.
+    Output DataFrame (kept identical to the previous nested-loop implementation
+    so ``BasketModel.predict`` doesn't need changes):
 
-    Returns DataFrame with columns:
-    - product1, product2: Product identifiers
+    - product1, product2: Product identifiers, sorted so product1 < product2
     - co_occurrence: Number of baskets containing both
     - support: Fraction of total baskets
+
+    We use ``mlxtend.frequent_patterns.fpgrowth`` against a sparse one-hot
+    transaction matrix — dramatically lighter on memory than materialising
+    every product pair in Python and safe to run on a B1 App Service
+    (1.75 GB RAM) even with 250k+ baskets.
     """
+    from mlxtend.frequent_patterns import fpgrowth
+    from mlxtend.preprocessing import TransactionEncoder
+
     cutoff_date = datetime.now() - timedelta(days=lookback_days)
 
-    # Get all basket compositions
     basket_query = (
-        select(
-            Transaction.basket_num,
-            Transaction.hshd_num,
-            Transaction.product_num,
-            Product.department,
-            Product.commodity,
-        )
-        .join(Product, Product.product_num == Transaction.product_num)
+        select(Transaction.basket_num, Transaction.product_num)
         .where(Transaction.purchase_date >= cutoff_date.date())
-        .order_by(Transaction.basket_num, Transaction.product_num)
     )
 
     result = await session.execute(basket_query)
@@ -320,34 +324,40 @@ async def get_market_basket_features(
     if baskets.empty:
         return pd.DataFrame()
 
-    # Count total unique baskets
-    total_baskets = baskets["basket_num"].nunique()
+    # basket → list of unique product_nums
+    basket_lists: list[list[int]] = (
+        baskets.groupby("basket_num")["product_num"].agg(lambda s: list(set(s))).tolist()
+    )
+    total_baskets = len(basket_lists)
 
-    # Find product co-occurrences: products purchased in same basket
-    basket_items = (
-        baskets.groupby("basket_num")["product_num"]
-        .apply(list)
-        .reset_index()
+    # Sparse one-hot. TransactionEncoder with sparse=True returns a scipy
+    # csr_matrix; the SparseDataFrame wrapper is what fpgrowth expects.
+    te = TransactionEncoder()
+    te_array = te.fit(basket_lists).transform(basket_lists, sparse=True)
+    sparse_df = pd.DataFrame.sparse.from_spmatrix(te_array, columns=te.columns_)
+
+    # max_len=2 restricts FP-growth to singletons + pairs — everything we
+    # need for the pair-wise recommendation path in BasketModel.predict.
+    # low_memory=True streams candidate generation off-heap.
+    frequent = fpgrowth(
+        sparse_df, min_support=min_support, use_colnames=True, max_len=2, low_memory=True
     )
 
-    associations = []
-    for items in basket_items["product_num"]:
-        # All pairs in this basket
-        for i in range(len(items)):
-            for j in range(i + 1, len(items)):
-                product_a, product_b = min(items[i], items[j]), max(items[i], items[j])
-                associations.append({"product1": product_a, "product2": product_b})
-
-    if not associations:
+    if frequent.empty:
         return pd.DataFrame()
 
-    assoc_df = pd.DataFrame(associations)
-    assoc_df = assoc_df.groupby(["product1", "product2"]).size().reset_index(name="co_occurrence")
-    assoc_df["support"] = assoc_df["co_occurrence"] / total_baskets
+    # Keep only 2-itemsets; drop singleton support rows.
+    pairs = frequent[frequent["itemsets"].apply(len) == 2].copy()
+    if pairs.empty:
+        return pd.DataFrame()
 
-    # Filter by minimum support
-    assoc_df = assoc_df[assoc_df["support"] >= min_support]
+    def _split(itemset: frozenset[int]) -> pd.Series:
+        a, b = sorted(itemset)
+        return pd.Series([a, b])
 
+    pairs[["product1", "product2"]] = pairs["itemsets"].apply(_split)
+    pairs["co_occurrence"] = (pairs["support"] * total_baskets).round().astype(int)
+    assoc_df = pairs[["product1", "product2", "co_occurrence", "support"]].reset_index(drop=True)
     return assoc_df
 
 

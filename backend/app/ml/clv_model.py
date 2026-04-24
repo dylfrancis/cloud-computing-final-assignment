@@ -77,6 +77,9 @@ class CLVModel:
         if target_data.empty:
             raise ValueError("No future spend data available for training")
 
+        # SUM(spend) comes back from pyodbc as decimal.Decimal; sklearn needs
+        # floats for arithmetic downstream (metric computation).
+        target_data["future_spend"] = target_data["future_spend"].astype(float)
         target_data = target_data.set_index("hshd_num")
 
         # Align features with target

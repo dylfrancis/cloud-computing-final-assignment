@@ -1,9 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_current_user_email, get_db
 from app.ml import trainer
+from app.ml.basket_model import BasketModel
+from app.ml.churn_model import ChurnModel
+from app.ml.clv_model import CLVModel
+from app.ml.persistence import artifact_path, load_model
 from app.ml.registry import get_registry
 
 router = APIRouter(
@@ -257,3 +261,57 @@ async def kick_off_retrain() -> dict:
     calling while a retrain is already running returns the current status."""
     return trainer.kick_off_retrain()
 
+
+
+# ==================== OFFLINE ARTIFACT UPLOAD ====================
+
+_UPLOAD_MAX_BYTES = 200 * 1024 * 1024  # 200 MB
+
+_MODEL_CLASSES = {"clv": CLVModel, "churn": ChurnModel, "basket": BasketModel}
+
+
+@router.post("/artifacts/{name}", status_code=status.HTTP_202_ACCEPTED)
+async def upload_artifact(name: str, file: UploadFile = File(...)) -> dict:
+    """Accept a joblib-serialized model trained offline, drop it onto the
+    persistent artifact dir, and hot-swap it into the in-memory registry."""
+    if name not in _MODEL_CLASSES:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Unknown model '{name}'. Valid: {sorted(_MODEL_CLASSES)}",
+        )
+
+    dst = artifact_path(name)
+    written = 0
+    with dst.open("wb") as fh:
+        while chunk := await file.read(1024 * 1024):
+            written += len(chunk)
+            if written > _UPLOAD_MAX_BYTES:
+                dst.unlink(missing_ok=True)
+                raise HTTPException(
+                    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    f"Artifact exceeds {_UPLOAD_MAX_BYTES // (1024 * 1024)} MB limit",
+                )
+            fh.write(chunk)
+
+    # Validate + hot-swap. If the pickle doesn't decode or isn't the expected
+    # class, discard it so the previous (valid) model keeps running.
+    loaded = load_model(name, _MODEL_CLASSES[name])
+    if loaded is None:
+        dst.unlink(missing_ok=True)
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Uploaded file could not be loaded as the expected model class. "
+            "The artifact was discarded; any previous model is untouched.",
+        )
+
+    registry = get_registry()
+    if name == "clv":
+        registry.clv_model = loaded
+    elif name == "churn":
+        registry.churn_model = loaded
+    else:
+        registry.basket_model = loaded
+
+    trainer.mark_external_training(name)  # type: ignore[arg-type]
+
+    return {"name": name, "bytes": written, "path": str(dst), "trained": True}

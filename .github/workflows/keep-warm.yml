@@ -1,0 +1,25 @@
+name: keep-warm
+
+# Pings /healthz every 45 minutes to keep Azure SQL Serverless from
+# auto-pausing (free offer pauses after 60 min idle). /healthz runs a
+# SELECT 1 which resets the DB's idle timer, so this keeps both the App
+# Service container and the DB warm during active days.
+
+on:
+  schedule:
+    - cron: '*/45 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /healthz
+        run: |
+          # --max-time accounts for the ~2 min wake-up on a cold DB, plus the
+          # container cold-start install-msodbcsql path if the app is new.
+          curl -fsSL --max-time 180 --retry 1 --retry-delay 10 \
+            https://adh2-api-cecfxb.azurewebsites.net/healthz

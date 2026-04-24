@@ -12,5 +12,6 @@ bcrypt>=4.1
 pyjwt>=2.9
 pandas>=2.2
 scikit-learn>=1.5
+mlxtend>=0.23
 joblib>=1.4
 python-dotenv>=1.0
