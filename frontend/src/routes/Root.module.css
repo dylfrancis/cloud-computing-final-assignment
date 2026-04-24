@@ -12,6 +12,31 @@
   border-bottom: 1px solid var(--border);
 }
 
+.user {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userEmail {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.logout {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.logout:hover { background: var(--code-bg); }
+
 .brand {
   font-size: 20px;
   margin: 0;

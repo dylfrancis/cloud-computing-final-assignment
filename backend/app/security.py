@@ -1,20 +1,27 @@
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 import jwt
-from passlib.context import CryptContext
 
 from app.config import get_settings
 
 settings = get_settings()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# bcrypt limits inputs to 72 bytes; truncate UTF-8 safely at that boundary.
+_BCRYPT_MAX_BYTES = 72
+
+
+def _prep(password: str) -> bytes:
+    raw = password.encode("utf-8")
+    return raw[:_BCRYPT_MAX_BYTES]
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_prep(password), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return pwd_context.verify(password, password_hash)
+    return bcrypt.checkpw(_prep(password), password_hash.encode("utf-8"))
 
 
 def create_access_token(subject: str) -> str:

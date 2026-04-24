@@ -1,7 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '../auth/useAuth'
 import styles from './Root.module.css'
 
 export function Root() {
+  const { user, logout } = useAuth()
   return (
     <div className={styles.shell}>
       <header className={styles.header}>
@@ -11,6 +13,14 @@ export function Root() {
           <NavLink to="/dashboard" className={navClass}>Dashboard</NavLink>
           <NavLink to="/upload" className={navClass}>Upload</NavLink>
         </nav>
+        <div className={styles.user}>
+          {user ? (
+            <>
+              <span className={styles.userEmail}>{user.email}</span>
+              <button className={styles.logout} onClick={logout}>Sign out</button>
+            </>
+          ) : null}
+        </div>
       </header>
       <main className={styles.main}>
         <Outlet />

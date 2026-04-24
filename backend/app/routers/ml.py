@@ -2,10 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps import get_db
+from app.deps import get_current_user_email, get_db
 from app.ml.registry import get_registry
 
-router = APIRouter(prefix="/ml", tags=["ml"])
+router = APIRouter(
+    prefix="/ml",
+    tags=["ml"],
+    dependencies=[Depends(get_current_user_email)],
+)
 
 
 # ==================== SCHEMAS ====================

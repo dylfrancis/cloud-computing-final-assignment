@@ -3,6 +3,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
+from app.deps import get_current_user_email
 from app.models.household import Household
 from app.models.product import Product
 from app.models.transaction import Transaction
@@ -13,7 +14,11 @@ from app.schemas.household import (
     PullRow,
 )
 
-router = APIRouter(prefix="/households", tags=["households"])
+router = APIRouter(
+    prefix="/households",
+    tags=["households"],
+    dependencies=[Depends(get_current_user_email)],
+)
 
 PULL_SORT_COLS = (
     Transaction.hshd_num,

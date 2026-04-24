@@ -1,8 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { AuthProvider } from './auth/AuthContext'
+import { RequireAuth } from './auth/RequireAuth'
+import { Login } from './routes/Login'
+import { Placeholder } from './routes/Placeholder'
 import { Root } from './routes/Root'
 import { Search } from './routes/Search'
-import { Placeholder } from './routes/Placeholder'
+import { Signup } from './routes/Signup'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -11,9 +15,15 @@ const queryClient = new QueryClient({
 })
 
 const router = createBrowserRouter([
+  { path: '/login', element: <Login /> },
+  { path: '/signup', element: <Signup /> },
   {
     path: '/',
-    element: <Root />,
+    element: (
+      <RequireAuth>
+        <Root />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Search /> },
       { path: 'dashboard', element: <Placeholder title="Dashboard" /> },
@@ -25,7 +35,9 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
     </QueryClientProvider>
   )
 }

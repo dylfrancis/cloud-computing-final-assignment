@@ -1,3 +1,5 @@
+import { getToken, clearToken } from '../auth/storage'
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
 export class ApiError extends Error {
@@ -11,10 +13,14 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-  })
+  const token = getToken()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers as Record<string, string> | undefined),
+  }
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
   if (!res.ok) {
     let detail = res.statusText
     try {
@@ -23,6 +29,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* keep statusText */
     }
+    if (res.status === 401) clearToken()
     throw new ApiError(res.status, detail)
   }
   return res.json() as Promise<T>
