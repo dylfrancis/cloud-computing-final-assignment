@@ -4,9 +4,9 @@
   --bg: #fff;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
+  --accent: #6b8e5e;
+  --accent-bg: rgba(107, 142, 94, 0.1);
+  --accent-border: rgba(107, 142, 94, 0.5);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
@@ -29,9 +29,9 @@
     --bg: #16171d;
     --border: #2e303a;
     --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
+    --accent: #a8c39a;
+    --accent-bg: rgba(168, 195, 154, 0.15);
+    --accent-border: rgba(168, 195, 154, 0.5);
   }
 }
 

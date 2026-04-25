@@ -4,7 +4,7 @@ import type { CategoryShareList } from '../../api/dashboard'
 import { formatMoney } from '../../lib/format'
 import { ChartCard } from './ChartCard'
 
-const COLORS = ['#aa3bff', '#7c3aed', '#6366f1', '#ec4899', '#f97316', '#64748b']
+const COLORS = ['#6b8e5e', '#3f5e36', '#9ab38a', '#ec4899', '#f97316', '#64748b']
 const PCT = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 })
 
 export function MixChart({
