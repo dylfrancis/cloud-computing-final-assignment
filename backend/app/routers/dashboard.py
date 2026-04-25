@@ -71,15 +71,24 @@ async def spend_over_time(
     grain: str = Query("week", pattern="^(week|month)$"),
     session: AsyncSession = Depends(get_session),
 ) -> SpendOverTime:
-    bucket = _bucket_expr(grain)
+    # SQL Server rejects GROUP BY over a parameterised expression
+    # (DATEADD(DATEDIFF(...)) is parameterised by the datepart unit). Wrap
+    # the projection in a subquery and group by the column alias instead.
+    inner = (
+        select(
+            _bucket_expr(grain).label("bucket"),
+            Transaction.spend.label("spend"),
+            Transaction.id.label("id"),
+        )
+    ).subquery()
     q = (
         select(
-            bucket.label("bucket"),
-            func.sum(Transaction.spend).label("spend"),
-            func.count(Transaction.id).label("transactions"),
+            inner.c.bucket.label("bucket"),
+            func.sum(inner.c.spend).label("spend"),
+            func.count(inner.c.id).label("transactions"),
         )
-        .group_by(bucket)
-        .order_by(bucket)
+        .group_by(inner.c.bucket)
+        .order_by(inner.c.bucket)
     )
     rows = (await session.execute(q)).all()
     points = [
@@ -123,15 +132,24 @@ async def top_departments(
 
 
 async def _category_share(session: AsyncSession, label_expr) -> CategoryShareList:
-    q = (
+    # See spend_over_time — SQL Server rejects GROUP BY on a parameterised
+    # CASE/COALESCE expression. Subquery the projection and group by the alias.
+    inner = (
         select(
             label_expr.label("label"),
-            func.sum(Transaction.spend).label("spend"),
-            func.count(Transaction.id).label("transactions"),
+            Transaction.spend.label("spend"),
+            Transaction.id.label("id"),
         )
         .join(Product, Product.product_num == Transaction.product_num)
-        .group_by(label_expr)
-        .order_by(func.sum(Transaction.spend).desc())
+    ).subquery()
+    q = (
+        select(
+            inner.c.label,
+            func.sum(inner.c.spend).label("spend"),
+            func.count(inner.c.id).label("transactions"),
+        )
+        .group_by(inner.c.label)
+        .order_by(func.sum(inner.c.spend).desc())
     )
     rows = (await session.execute(q)).all()
     total = float(sum(float(r.spend or 0) for r in rows))
