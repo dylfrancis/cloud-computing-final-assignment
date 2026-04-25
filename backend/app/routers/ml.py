@@ -43,6 +43,7 @@ class ChurnPrediction(BaseModel):
 
     hshd_num: int
     churn_probability: float
+    churn_percentile: float
     risk_level: str  # "high" | "medium" | "low"
     is_churned: bool
 

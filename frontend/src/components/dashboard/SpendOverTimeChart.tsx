@@ -17,6 +17,15 @@ import styles from './SpendOverTimeChart.module.css'
 const COMPACT = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
 const TICK = new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit' })
 
+function fmtBucket(raw: unknown): string {
+  const s = String(raw ?? '')
+  // Backend returns YYYY-MM-DD; tolerate a leading datetime ("YYYY-MM-DDT...")
+  // by taking the date prefix.
+  const datePart = s.length >= 10 ? s.slice(0, 10) : s
+  const d = new Date(`${datePart}T00:00:00`)
+  return Number.isFinite(d.getTime()) ? TICK.format(d) : s
+}
+
 export function SpendOverTimeChart() {
   const [grain, setGrain] = useState<'week' | 'month'>('week')
   const query = useQuery({
@@ -59,7 +68,7 @@ export function SpendOverTimeChart() {
               dataKey="bucket"
               stroke="var(--text)"
               fontSize={11}
-              tickFormatter={(b) => TICK.format(new Date(`${String(b)}T00:00:00`))}
+              tickFormatter={(b) => fmtBucket(b)}
             />
             <YAxis
               stroke="var(--text)"
@@ -69,7 +78,7 @@ export function SpendOverTimeChart() {
             />
             <Tooltip
               formatter={(value) => [formatMoney(Number(value)), 'Spend']}
-              labelFormatter={(l) => TICK.format(new Date(`${String(l)}T00:00:00`))}
+              labelFormatter={(l) => fmtBucket(l)}
               contentStyle={{
                 background: 'var(--bg)',
                 border: '1px solid var(--border)',

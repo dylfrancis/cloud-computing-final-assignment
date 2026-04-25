@@ -70,7 +70,17 @@ async def _train_one(name: ModelName) -> None:
     _state[name]["error"] = None
     try:
         async with SessionLocal() as session:
-            await model.train(session, lookback_days=_DEFAULT_LOOKBACK_DAYS)
+            kwargs: dict = {"lookback_days": _DEFAULT_LOOKBACK_DAYS}
+            # Basket's default min_support=0.02 is too strict for the 84.51°
+            # sample — see scripts/train_ml.py for the same rationale. We
+            # dropped further from 0.005 → 0.001 because at 0.005 the
+            # associations table only contained pairs of very popular products,
+            # which active households had already purchased — so the
+            # "exclude already-purchased" filter in predict left them with 0–1
+            # recommendations.
+            if name == "basket":
+                kwargs["min_support"] = 0.001
+            await model.train(session, **kwargs)
         _state[name]["status"] = "ok"
         _state[name]["trained"] = True
         # clv/churn set training_date internally; basket only has .associations.

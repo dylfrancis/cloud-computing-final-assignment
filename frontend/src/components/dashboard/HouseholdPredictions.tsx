@@ -122,17 +122,28 @@ function ChurnCard({
 }) {
   return (
     <Tile title="Churn risk" query={query}>
-      {(data) => (
-        <>
-          <div className={styles.statValue}>{PCT.format(data.churn_probability)}</div>
-          <div className={styles.statRow}>
-            <RiskPill level={data.risk_level} />
-            <span className={styles.statMeta}>
-              {data.is_churned ? 'Already churned' : 'Active'}
-            </span>
-          </div>
-        </>
-      )}
+      {(data) => {
+        // churn_percentile was added later than churn_probability, so fall
+        // back to the raw probability if the backend hasn't been redeployed
+        // yet — avoids showing "Top NaN% risk".
+        const hasPercentile = Number.isFinite(data.churn_percentile)
+        return (
+          <>
+            <div className={styles.statValue}>
+              {hasPercentile
+                ? `Top ${PCT.format(1 - data.churn_percentile / 100)} risk`
+                : PCT.format(data.churn_probability)}
+            </div>
+            <div className={styles.statRow}>
+              <RiskPill level={data.risk_level} />
+              <span className={styles.statMeta}>
+                {hasPercentile && `${PCT.format(data.churn_probability)} · `}
+                {data.is_churned ? 'Already churned' : 'Active'}
+              </span>
+            </div>
+          </>
+        )
+      }}
     </Tile>
   )
 }

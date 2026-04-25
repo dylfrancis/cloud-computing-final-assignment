@@ -25,6 +25,7 @@ export type CLVPrediction = {
 export type ChurnPrediction = {
   hshd_num: number
   churn_probability: number
+  churn_percentile: number
   risk_level: 'high' | 'medium' | 'low'
   is_churned: boolean
 }

@@ -93,7 +93,14 @@ async def spend_over_time(
     rows = (await session.execute(q)).all()
     points = [
         SpendPoint(
-            bucket=row.bucket.isoformat() if hasattr(row.bucket, "isoformat") else str(row.bucket),
+            # SQL Server DATEADD returns DATETIME; the frontend's chart
+            # tickFormatter expects a date-only string (YYYY-MM-DD), so we
+            # take date() before isoformat() to strip any 00:00:00 suffix.
+            bucket=(
+                row.bucket.date().isoformat()
+                if hasattr(row.bucket, "date")
+                else str(row.bucket)[:10]
+            ),
             spend=float(row.spend or 0),
             transactions=int(row.transactions or 0),
         )

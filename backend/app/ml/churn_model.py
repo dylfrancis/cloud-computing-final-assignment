@@ -53,8 +53,14 @@ class ChurnModel:
         """
         from sqlalchemy import text
 
-        # Get features
-        features_df = await get_churn_features(session, lookback_days=lookback_days)
+        # Get features. observation_lag_days MUST match churn_threshold_days
+        # so features come from BEFORE the label window — otherwise the label
+        # leaks into the features and the GBT saturates to 0/100 outputs.
+        features_df = await get_churn_features(
+            session,
+            lookback_days=lookback_days,
+            observation_lag_days=churn_threshold_days,
+        )
 
         if features_df.empty:
             raise ValueError("No transaction data available for training")
@@ -94,8 +100,18 @@ class ChurnModel:
             X, y, test_size=test_size, random_state=42, stratify=y
         )
 
+        # Balance the classes. The 84.51° sample is mostly households that
+        # keep shopping through 2020 — without sample weights GBT just learns
+        # to always predict "not churned" because that minimises log-loss on
+        # an imbalanced training set. compute_sample_weight("balanced") gives
+        # each minority-class sample weight n_samples / (n_classes * count(y))
+        # so both classes contribute equally to the loss.
+        from sklearn.utils.class_weight import compute_sample_weight
+
+        sample_weight = compute_sample_weight("balanced", y_train)
+
         # Train model
-        self.model.fit(X_train, y_train)
+        self.model.fit(X_train, y_train, sample_weight=sample_weight)
         self.is_trained = True
         self.training_date = datetime.now()
 
@@ -144,21 +160,39 @@ class ChurnModel:
         if not self.is_trained:
             raise ValueError("Model not trained. Call train() first.")
 
-        features_df = await get_churn_features(session, hshd_num=hshd_num)
-
-        if features_df.empty:
+        # See clv_model.predict for the rationale: prepare_training_data
+        # normalises against the input frame's max, so a single-row predict
+        # collapses every feature to 1.0 and every household gets the same
+        # prediction. Normalise across all households, then pluck the row.
+        all_features = await get_churn_features(session)
+        if all_features.empty or hshd_num not in all_features.index:
             raise ValueError(f"No transaction data for household {hshd_num}")
 
-        X, _ = prepare_training_data(
-            features_df[self.feature_names] if self.feature_names else features_df
+        feature_frame = (
+            all_features[self.feature_names] if self.feature_names else all_features
         )
+        all_X, _ = prepare_training_data(feature_frame)
+        row_idx = all_features.index.get_loc(hshd_num)
 
-        churn_prob = float(self.model.predict_proba(X)[0, 1])
+        all_probs = self.model.predict_proba(all_X)[:, 1]
+        churn_prob = float(all_probs[row_idx])
 
-        # Risk levels
-        if churn_prob >= 0.7:
+        # Percentile rank in [0, 100]: percent of households with a
+        # churn_probability <= this one. The GBT's raw proba distribution
+        # is bimodal on the 84.51° sample (~87% near 0, ~13% near 1) so
+        # surfacing the percentile in the UI gives meaningful variety
+        # across households even when the absolute proba is saturated.
+        if len(all_probs) > 0:
+            percentile = float(np.mean(all_probs <= churn_prob) * 100)
+        else:
+            percentile = 0.0
+
+        # Risk tiers driven by percentile (matches CLV's segment shape).
+        # is_churned still uses the raw proba so the binary classifier
+        # decision stays available for callers that want it.
+        if percentile >= 66:
             risk_level = "high"
-        elif churn_prob >= 0.4:
+        elif percentile >= 33:
             risk_level = "medium"
         else:
             risk_level = "low"
@@ -166,6 +200,7 @@ class ChurnModel:
         return {
             "hshd_num": hshd_num,
             "churn_probability": churn_prob,
+            "churn_percentile": percentile,
             "risk_level": risk_level,
             "is_churned": churn_prob > 0.5,
         }

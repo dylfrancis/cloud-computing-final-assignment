@@ -82,13 +82,19 @@ class CLVModel:
         target_data["future_spend"] = target_data["future_spend"].astype(float)
         target_data = target_data.set_index("hshd_num")
 
-        # Align features with target
-        common_idx = features_df.index.intersection(target_data.index)
-        X_aligned = features_df.loc[common_idx]
-        y_aligned = target_data.loc[common_idx, "future_spend"]
+        # Align features with target. Use ALL households with features and
+        # treat households who didn't purchase in the future window as zero
+        # spend — this is the "active customer" target signal we want the
+        # model to predict. Inner-join (the previous behavior) silently
+        # excluded those rows, so the model only saw high-engagement
+        # households and predictions collapsed near the mean.
+        X_aligned = features_df
+        y_aligned = (
+            target_data["future_spend"].reindex(features_df.index).fillna(0.0)
+        )
 
-        if len(common_idx) < 10:
-            raise ValueError(f"Insufficient training samples: {len(common_idx)}")
+        if len(X_aligned) < 10:
+            raise ValueError(f"Insufficient training samples: {len(X_aligned)}")
 
         # Prepare data
         X, y = prepare_training_data(X_aligned, y_aligned)
@@ -115,7 +121,7 @@ class CLVModel:
             "rmse": float(rmse),
             "r2_score": float(r2),
             "training_date": self.training_date.isoformat(),
-            "n_samples": len(common_idx),
+            "n_samples": len(X_aligned),
             "n_features": X.shape[1],
         }
 
@@ -134,23 +140,24 @@ class CLVModel:
         if not self.is_trained:
             raise ValueError("Model not trained. Call train() first.")
 
-        features_df = await get_clv_features(session, hshd_num=hshd_num)
-
-        if features_df.empty:
+        # IMPORTANT: prepare_training_data normalises by col_max of its input.
+        # Calling it with a single-household frame collapses every numeric
+        # feature to 1.0 — every household would then get the same prediction.
+        # Compute features for ALL households once, normalise together, then
+        # index out the row for the target household so the scale matches
+        # what the model was trained against.
+        all_features = await get_clv_features(session)
+        if all_features.empty or hshd_num not in all_features.index:
             raise ValueError(f"No transaction data for household {hshd_num}")
 
-        X, _ = prepare_training_data(
-            features_df[self.feature_names] if self.feature_names else features_df
-        )
-
-        clv_score = float(self.model.predict(X)[0])
-
-        # Get percentile from all households for context
-        all_features = await get_clv_features(session)
-        all_X, _ = prepare_training_data(
+        feature_frame = (
             all_features[self.feature_names] if self.feature_names else all_features
         )
+        all_X, _ = prepare_training_data(feature_frame)
+        row_idx = all_features.index.get_loc(hshd_num)
+
         all_scores = self.model.predict(all_X)
+        clv_score = float(all_scores[row_idx])
         # Percentile rank in [0, 100]: percent of household scores <= this one.
         # np.percentileofscore doesn't exist — scipy.stats has that function,
         # not numpy. We compute it inline to avoid pulling scipy.

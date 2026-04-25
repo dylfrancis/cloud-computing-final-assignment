@@ -167,7 +167,10 @@ async def get_clv_features(
 
 
 async def get_churn_features(
-    session: AsyncSession, hshd_num: int | None = None, lookback_days: int = DEFAULT_LOOKBACK_DAYS
+    session: AsyncSession,
+    hshd_num: int | None = None,
+    lookback_days: int = DEFAULT_LOOKBACK_DAYS,
+    observation_lag_days: int = 180,
 ) -> pd.DataFrame:
     """
     Extract features for Churn prediction.
@@ -185,8 +188,23 @@ async def get_churn_features(
 
     Returns DataFrame with columns matching feature names, indexed by hshd_num.
     """
-    cutoff_date = datetime.now() - timedelta(days=lookback_days)
-    recent_cutoff = datetime.now() - timedelta(days=90)
+    # Compute features strictly from the pre-observation period to avoid
+    # leaking the churn label. The label is "no purchase in the last
+    # `churn_threshold_days` days at the dataset's reference date" — any
+    # feature derived from inside that same window deterministically predicts
+    # one side of the label and the GBT saturates to 0/100 outputs (which is
+    # exactly what we were seeing). Train/predict both default to the same
+    # `observation_lag_days` so the feature distribution stays aligned.
+    #
+    # Layout (anchored on data MAX, not wall-clock — sample is 2018–2020):
+    #   [ ... lookback ... | prior | recent ] observation_date  [ label window ]
+    # observation_date = reference_date - observation_lag_days
+    # recent_cutoff    = observation_date - 90 days
+    # cutoff_date      = observation_date - lookback_days
+    reference_date = await get_reference_date(session)
+    observation_date = reference_date - pd.Timedelta(days=observation_lag_days)
+    cutoff_date = observation_date - pd.Timedelta(days=lookback_days)
+    recent_cutoff = observation_date - pd.Timedelta(days=90)
 
     tx_query = (
         select(
@@ -197,6 +215,7 @@ async def get_churn_features(
         )
         .join(Product, Product.product_num == Transaction.product_num)
         .where(Transaction.purchase_date >= cutoff_date.date())
+        .where(Transaction.purchase_date < observation_date.date())
     )
 
     if hshd_num is not None:
@@ -211,12 +230,14 @@ async def get_churn_features(
     # Decimal → float so downstream aggregates don't mix dtypes.
     transactions["spend"] = transactions["spend"].astype(float)
 
-    # Recency
+    # Recency — also pre-observation only so this stays a candidate feature
+    # in the future without re-introducing leakage.
     recency_query = (
         select(
             Transaction.hshd_num,
             func.max(Transaction.purchase_date).label("last_purchase_date"),
         )
+        .where(Transaction.purchase_date < observation_date.date())
         .group_by(Transaction.hshd_num)
     )
 
@@ -228,8 +249,7 @@ async def get_churn_features(
     # pd.to_datetime normalises the date objects coming out of pyodbc so the
     # subtraction produces a Timedelta Series with a working .dt accessor.
     recency["last_purchase_date"] = pd.to_datetime(recency["last_purchase_date"])
-    reference_date = await get_reference_date(session)
-    recency["recency_days"] = (reference_date - recency["last_purchase_date"]).dt.days
+    recency["recency_days"] = (observation_date - recency["last_purchase_date"]).dt.days
     recency = recency[["hshd_num", "recency_days"]]
 
     # Split into recent and prior periods
@@ -268,8 +288,15 @@ async def get_churn_features(
         0,
     )
 
-    # Add recency
+    # recency_days is now safe to use as a feature: with the pre-observation
+    # window in place, it measures "how long was this household quiet BEFORE
+    # the observation date" rather than "how long since their last purchase
+    # at the label's reference date". The previous formulation was identical
+    # to the label and caused leakage; this one isn't and gives the model
+    # real signal about the household's slowdown pattern leading into the
+    # observation point.
     features = features.merge(recency, on="hshd_num", how="left")
+    features["recency_days"] = features["recency_days"].fillna(observation_lag_days)
 
     # Add loyalty flag from demographics
     if hshd_num is not None:
