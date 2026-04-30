@@ -6,8 +6,6 @@ name: keep-warm
 # Service container and the DB warm during active days.
 
 on:
-  schedule:
-    - cron: '*/45 * * * *'
   workflow_dispatch:
 
 permissions:
